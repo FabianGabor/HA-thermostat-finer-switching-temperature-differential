@@ -30,23 +30,9 @@ blueprint:
           step: 0.1
           mode: slider
 
-    check_interval:
-      name: Check Interval
-      description: How often the thermostat temperature should be checked
-      default: 5
-      selector:
-        number:
-          min: 1
-          max: 60
-          step: 1
-          mode: box
-          unit_of_measurement: minutes
-
 trigger:
   - platform: template
     value_template: "{{ state_attr('input_thermostat', 'current_temperature') >= state_attr('input_thermostat', 'temperature') }}"
-  - platform: template
-    value_template: "{{ now().minute % states('input_number.check_interval') | int == 0 }}"
   - platform: homeassistant
     event: start
 
