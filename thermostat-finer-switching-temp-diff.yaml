@@ -6,7 +6,7 @@ blueprint:
 
   input:
     thermostat:
-      name: thermostat
+      name: Thermostat
       description: The thermostat to control
       selector:
         entity:
@@ -27,10 +27,27 @@ blueprint:
           max: 1.0
           step: 0.1
           mode: slider
+    repeat_interval:
+      name: Repeat Interval
+      description: How often the thermostat check should be repeated (if enabled)
+      default: 00:05:00
+      selector:
+        time:
+    enable_repeat_interval:
+      name: Enable Repeat Interval
+      description: When checked, the thermostat check will be repeated at the specified interval
+      default: false
+      selector:
+        boolean:
 
 trigger:
   - platform: state
     entity_id: !input thermostat
+  - platform: time_pattern
+    minutes: "/{{ (states('input_text.repeat_interval')[3:5])|int }}"
+    condition:
+       condition: template
+       value_template: "{{ is_state('input_boolean.enable_repeat_interval', 'on') }}"
 
 condition:
   - condition: template
@@ -40,7 +57,7 @@ action:
   - service: climate.set_temperature
     data:
       entity_id: !input thermostat
-      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float - states('input_text.switching_differential')|float }}"
+      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float - states('input_number.switching_differential')|float }}"
   - delay: !input delay
   - service: climate.set_temperature
     data:
