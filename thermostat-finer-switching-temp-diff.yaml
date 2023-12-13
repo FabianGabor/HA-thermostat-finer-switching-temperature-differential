@@ -19,7 +19,7 @@ blueprint:
         time:
     switching_differential:
       name: Switching Differential
-      description: Temperature range for switching (in degrees)
+      description: This is the temperature reduction value (in degrees) applied temporarily to the set target temperature when that target is reached. This decreased temperature lasts for the specified time before the original target temperature is restored, prompting the thermostat into idle mode.
       default: 0.5
       selector:
         number:
