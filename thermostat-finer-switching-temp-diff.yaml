@@ -1,8 +1,8 @@
 blueprint:
-  name: Thermostat Finer Switching Temp Diff
+  name: Thermostat Finer Switching Temp Diff [dev]
   description: Controls multiple Thermostats to have a finer temperature control.
   domain: automation
-  source_url: https://github.com/home-assistant/home-assistant/pulls
+  source_url: https://github.com/FabianGabor/HA-thermostat-finer-switching-temperature-differential/blob/dev/thermostat-finer-switching-temp-diff.yaml
 
   input:
     thermostats:
