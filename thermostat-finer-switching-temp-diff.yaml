@@ -32,7 +32,10 @@ blueprint:
 
 trigger:
   - platform: template
-    value_template: "{{ state_attr('input_thermostat', 'current_temperature') >= state_attr('input_thermostat', 'temperature') }}"
+    value_template: >-
+      {% set current_temp = state_attr('input_thermostat', 'current_temperature') %}
+      {% set set_temp = state_attr('input_thermostat', 'temperature') %}
+      {{ current_temp is not none and set_temp is not none and current_temp >= set_temp }}
   - platform: homeassistant
     event: start
 
