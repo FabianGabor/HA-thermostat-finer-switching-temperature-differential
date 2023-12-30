@@ -36,18 +36,16 @@ trigger:
     entity_id: !input 'thermostats'
 
 action:
-  - choose:
-    - sequence:
-        - condition: template
-          value_template: "{{ state_attr(trigger.entity_id, 'current_temperature') >= state_attr(trigger.entity_id, 'temperature') }}"
-        - service: climate.set_temperature
-          target:
-            entity_id: "{{ trigger.entity_id }}"
-          data:
-            temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float - states('input_number.switching_differential')|float }}"
-        - delay: !input delay
-        - service: climate.set_temperature
-          target:
-            entity_id: "{{ trigger.entity_id }}"
-          data:
-            temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float }}"
+  - condition: template
+    value_template: "{{ state_attr(trigger.entity_id, 'current_temperature') >= state_attr(trigger.entity_id, 'temperature') }}"
+  - service: climate.set_temperature
+    target:
+      entity_id: "{{ trigger.entity_id }}"
+    data:
+      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float - states('input_number.switching_differential')|float }}"
+  - delay: !input delay
+  - service: climate.set_temperature
+    target:
+      entity_id: "{{ trigger.entity_id }}"
+    data:
+      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float }}"
