@@ -37,16 +37,18 @@ trigger:
 
 action:
   - choose:
-    - conditions: "{{ states(trigger.entity_id) not in ['unknown', 'unavailable', None] }}"
+    - conditions: "{{ states(trigger.to_state.entity_id) not in ['unknown', 'unavailable', None] }}"
       sequence:
         - condition: template
-          value_template: "{{ state_attr(trigger.entity_id, 'current_temperature') >= state_attr(trigger.entity_id, 'temperature') }}"
+          value_template: "{{ state_attr(trigger.to_state.entity_id, 'current_temperature') >= state_attr(trigger.to_state.entity_id, 'temperature') }}"
         - service: climate.set_temperature
-          data_template:
-            entity_id: "{{ trigger.entity_id }}"
-            temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float - states('input_number.switching_differential')|float }}"
+          target:
+            entity_id: "{{ trigger.to_state.entity_id }}"
+          data:
+            temperature: "{{ state_attr(trigger.to_state.entity_id, 'temperature')|float - states('input_number.switching_differential')|float }}"
         - delay: !input delay
         - service: climate.set_temperature
-          data_template:
-            entity_id: "{{ trigger.entity_id }}"
-            temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float }}"
+          target:
+            entity_id: "{{ trigger.to_state.entity_id }}"
+          data:
+            temperature: "{{ state_attr(trigger.to_state.entity_id, 'temperature')|float }}"
