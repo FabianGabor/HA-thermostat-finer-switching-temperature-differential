@@ -48,4 +48,4 @@ action:
     target:
       entity_id: "{{ trigger.entity_id }}"
     data:
-      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float }} + states('input_number.switching_differential')|float(default=0.5) }}"
+      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float + states('input_number.switching_differential')|float(default=0.5) }}"
