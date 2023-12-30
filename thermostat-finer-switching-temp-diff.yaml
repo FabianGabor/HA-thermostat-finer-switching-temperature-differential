@@ -27,7 +27,7 @@ blueprint:
       selector:
         number:
           min: 0.5
-          max: 5.0
+          max: 3.0
           step: 0.1
           mode: slider
 
@@ -42,10 +42,10 @@ action:
     target:
       entity_id: "{{ trigger.entity_id }}"
     data:
-      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float - states('input_number.switching_differential')|float }}"
+      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float - states('input_number.switching_differential')|float(default=0.5) }}"
   - delay: !input delay
   - service: climate.set_temperature
     target:
       entity_id: "{{ trigger.entity_id }}"
     data:
-      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float }}"
+      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float }} + states('input_number.switching_differential')|float(default=0.5) }}"
