@@ -32,11 +32,11 @@ blueprint:
           mode: slider
 
 trigger:
-  - platform: numeric_state
+  - platform: state
     entity_id: !input 'thermostats'
     attribute: current_temperature
 
-  - platform: numeric_state
+  - platform: state
     entity_id: !input 'thermostats'
     attribute: temperature
     for:
