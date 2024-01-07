@@ -36,6 +36,14 @@ trigger:
     entity_id: !input 'thermostats'
     attribute: current_temperature
 
+  - platform: numeric_state
+    entity_id: !input 'thermostats'
+    attribute: temperature
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 30
+
 action:
   - condition: template
     value_template: "{{ state_attr(trigger.entity_id, 'current_temperature') >= state_attr(trigger.entity_id, 'temperature') }}"
