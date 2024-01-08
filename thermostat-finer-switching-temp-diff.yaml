@@ -39,6 +39,8 @@ trigger:
 action:
   - condition: template
     value_template: "{{ state_attr(trigger.entity_id, 'current_temperature') >= state_attr(trigger.entity_id, 'temperature') }}"
+  - condition: template
+    value_template: "{{ is_state_attr(trigger.entity_id, 'hvac_action', 'heating') }}"
   - delay: !input delay
   - service: climate.set_temperature
     target:
