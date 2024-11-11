@@ -31,13 +31,17 @@ blueprint:
           mode: slider
 
 trigger:
-  - platform: template
+  - trigger: template
     value_template: >-
       {% set current_temp = state_attr('input_thermostat', 'current_temperature') %}
       {% set set_temp = state_attr('input_thermostat', 'temperature') %}
       {{ current_temp is not none and set_temp is not none and current_temp >= set_temp }}
-  - platform: homeassistant
+  - trigger: homeassistant
     event: start
+  - trigger: numeric_state
+    entity_id:
+      - climate.vendegszoba_1_meross_lan
+    attribute: temperature
 
 action:
   - wait_template: "{{ states('input_thermostat') not in ['unknown', 'unavailable', None] }}"
