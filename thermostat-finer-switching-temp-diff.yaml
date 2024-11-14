@@ -34,7 +34,7 @@ trigger:
   - platform: state
     entity_id: !input 'thermostat'
     attribute: current_temperature
-  - platform: numeric_state
+  - platform: state
     entity_id: !input 'thermostat'
     attribute: temperature
   - trigger: homeassistant
