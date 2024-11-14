@@ -32,8 +32,13 @@ blueprint:
 
 trigger:
   - platform: state
-    entity_id: !input 'thermostats'
+    entity_id: !input 'thermostat'
     attribute: current_temperature
+  - trigger: numeric_state
+    entity_id: !input 'thermostat'
+    attribute: temperature
+  - trigger: homeassistant
+    event: start
 
 action:
   - condition: template
