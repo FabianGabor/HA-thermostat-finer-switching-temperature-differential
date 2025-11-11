@@ -71,31 +71,39 @@ blueprint:
 
 trigger:
   - trigger: numeric_state
-    entity_id: !input thermostat
+    entity_id:
+      - !input thermostat
     attribute: temperature
     below: !input actual_temperature_sensor
     id: target-below-actual
     alias: Target < Actual
 
   - trigger: numeric_state
-    entity_id: !input thermostat
+    entity_id:
+      - !input thermostat
     attribute: temperature
     above: !input actual_temperature_sensor
     id: target-above-actual
     alias: Target > Actual
 
   - trigger: state
-    entity_id: !input thermostat
+    entity_id:
+      - !input thermostat
     attribute: temperature
     id: target-temp-changed
     for:
+      hours: 0
+      minutes: 0
       seconds: !input temperature_change_delay
 
   - trigger: state
-    entity_id: !input thermostat
+    entity_id:
+      - !input thermostat
     attribute: current_temperature
     id: current-temp-changed
     for:
+      hours: 0
+      minutes: 0
       seconds: !input current_temp_change_delay
 
   - trigger: homeassistant
@@ -120,10 +128,10 @@ action:
               {% set thermostat = input_thermostat %}
               {{ state_attr(thermostat, 'current_temperature') > state_attr(thermostat, 'temperature') }}
             alias: Current > Target
-          - condition: template
-            value_template: >-
-              {% set thermostat = input_thermostat %}
-              {{ state_attr(thermostat, 'hvac_action') == 'heating' }}
+          - condition: state
+            entity_id: !input thermostat
+            attribute: hvac_action
+            state: heating
             alias: HVAC is heating
         sequence:
           # Decrease target temperature by differential
@@ -139,15 +147,21 @@ action:
           # Wait for HVAC to go to idle
           - wait_for_trigger:
               - trigger: state
-                entity_id: !input thermostat
+                entity_id:
+                  - !input thermostat
                 attribute: hvac_action
                 to: idle
             timeout:
+              hours: 0
+              minutes: 0
               seconds: !input wait_timeout
+              milliseconds: 0
             continue_on_timeout: false
           
           # Restore original temperature setting
           - action: scene.turn_on
+            metadata: {}
+            data: {}
             target:
               entity_id: scene.thermostat_temp_diff_snapshot
         alias: Actual > Target Temperature
@@ -159,10 +173,10 @@ action:
               {% set thermostat = input_thermostat %}
               {{ state_attr(thermostat, 'current_temperature') < state_attr(thermostat, 'temperature') }}
             alias: Current < Target
-          - condition: template
-            value_template: >-
-              {% set thermostat = input_thermostat %}
-              {{ state_attr(thermostat, 'hvac_action') == 'idle' }}
+          - condition: state
+            entity_id: !input thermostat
+            attribute: hvac_action
+            state: idle
             alias: HVAC is idle
         sequence:
           # Increase target temperature by differential
@@ -178,15 +192,21 @@ action:
           # Wait for HVAC to start heating
           - wait_for_trigger:
               - trigger: state
-                entity_id: !input thermostat
+                entity_id:
+                  - !input thermostat
                 attribute: hvac_action
                 to: heating
             timeout:
+              hours: 0
+              minutes: 0
               seconds: !input wait_timeout
+              milliseconds: 0
             continue_on_timeout: false
           
           # Restore original temperature setting
           - action: scene.turn_on
+            metadata: {}
+            data: {}
             target:
               entity_id: scene.thermostat_temp_diff_snapshot
         alias: Actual < Target Temperature
@@ -198,6 +218,8 @@ action:
           - ha-start
     then:
       - action: scene.turn_on
+        metadata: {}
+        data: {}
         target:
           entity_id: scene.thermostat_temp_diff_snapshot
 
