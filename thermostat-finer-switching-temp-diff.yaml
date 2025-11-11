@@ -1,59 +1,208 @@
 blueprint:
   name: Thermostat Finer Switching Temp Diff
-  description: Controls a Thermostat to have a finer temperature control.
+  description: >
+    Controls a thermostat with finer temperature control by temporarily adjusting 
+    the target temperature when the actual temperature exceeds or falls below the 
+    desired temperature. Uses scene snapshots to restore original settings after adjustment.
   domain: automation
-  source_url: https://github.com/home-assistant/home-assistant/pulls
+  source_url: https://github.com/FabianGabor/HA-thermostat-finer-switching-temperature-differential
 
   input:
     thermostat:
       name: Thermostat
-      description: The thermostat to control
+      description: The climate entity to control
       selector:
         entity:
           domain: climate
 
-    delay:
-      name: Delay
-      description: Delay between temperature adjustments
-      default: 00:00:10
+    actual_temperature_sensor:
+      name: Actual Temperature Sensor
+      description: The sensor that reports the actual/current temperature
       selector:
-        time:
+        entity:
+          domain: sensor
+          device_class: temperature
+
+    temperature_change_delay:
+      name: Temperature Change Delay
+      description: Wait time after temperature attribute changes before taking action
+      default: 10
+      selector:
+        number:
+          min: 0
+          max: 300
+          unit_of_measurement: seconds
+          mode: slider
+
+    current_temp_change_delay:
+      name: Current Temperature Change Delay
+      description: Wait time after current temperature changes before taking action
+      default: 60
+      selector:
+        number:
+          min: 0
+          max: 300
+          unit_of_measurement: seconds
+          mode: slider
 
     switching_differential:
       name: Switching Differential
-      description: This is the temperature reduction value (in degrees) applied temporarily to the set target temperature when that target is reached. This decreased temperature lasts for the specified time before the original target temperature is restored, prompting the thermostat to idle mode.
-      default: 0.5
+      description: >
+        The temperature adjustment value (in degrees) applied temporarily when 
+        the actual temperature differs from target. Default is 0.1°C.
+      default: 0.1
       selector:
         number:
-          min: 0.5
-          max: 3.0
-          step: 0.5
+          min: 0.1
+          max: 0.5
+          step: 0.1
+          mode: slider
+
+    wait_timeout:
+      name: Wait Timeout
+      description: Maximum time to wait for HVAC action state change
+      default: 60
+      selector:
+        number:
+          min: 10
+          max: 300
+          unit_of_measurement: seconds
           mode: slider
 
 trigger:
-  - platform: state
-    entity_id: !input 'thermostat'
-    attribute: current_temperature
-  - platform: state
-    entity_id: !input 'thermostat'
+  - trigger: numeric_state
+    entity_id: !input thermostat
     attribute: temperature
+    below: !input actual_temperature_sensor
+    id: target-below-actual
+    alias: Target < Actual
+
+  - trigger: numeric_state
+    entity_id: !input thermostat
+    attribute: temperature
+    above: !input actual_temperature_sensor
+    id: target-above-actual
+    alias: Target > Actual
+
+  - trigger: state
+    entity_id: !input thermostat
+    attribute: temperature
+    id: target-temp-changed
+    for:
+      seconds: !input temperature_change_delay
+
+  - trigger: state
+    entity_id: !input thermostat
+    attribute: current_temperature
+    id: current-temp-changed
+    for:
+      seconds: !input current_temp_change_delay
+
   - trigger: homeassistant
     event: start
+    id: ha-start
+
+condition: []
 
 action:
-  - condition: template
-    value_template: "{{ state_attr(trigger.entity_id, 'current_temperature') >= state_attr(trigger.entity_id, 'temperature') }}"
-  - condition: template
-    value_template: "{{ is_state_attr(trigger.entity_id, 'hvac_action', 'heating') }}"
-  - delay: !input delay
-  - service: climate.set_temperature
-    target:
-      entity_id: "{{ trigger.entity_id }}"
+  # Create a snapshot of the current thermostat state
+  - action: scene.create
     data:
-      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float - states('input_number.switching_differential')|float(default=0.5) }}"
-  - delay: !input delay
-  - service: climate.set_temperature
-    target:
-      entity_id: "{{ trigger.entity_id }}"
-    data:
-      temperature: "{{ state_attr(trigger.entity_id, 'temperature')|float + states('input_number.switching_differential')|float(default=0.5) }}"
+      snapshot_entities:
+        - !input thermostat
+      scene_id: thermostat_temp_diff_snapshot
+
+  - choose:
+      # When actual temperature > target temperature and heating
+      - conditions:
+          - condition: template
+            value_template: >-
+              {% set thermostat = input_thermostat %}
+              {{ state_attr(thermostat, 'current_temperature') > state_attr(thermostat, 'temperature') }}
+            alias: Current > Target
+          - condition: template
+            value_template: >-
+              {% set thermostat = input_thermostat %}
+              {{ state_attr(thermostat, 'hvac_action') == 'heating' }}
+            alias: HVAC is heating
+        sequence:
+          # Decrease target temperature by differential
+          - action: climate.set_temperature
+            target:
+              entity_id: !input thermostat
+            data:
+              temperature: >-
+                {% set thermostat = input_thermostat %}
+                {% set differential = input_switching_differential %}
+                {{ (state_attr(thermostat, 'temperature') | float) - differential }}
+          
+          # Wait for HVAC to go to idle
+          - wait_for_trigger:
+              - trigger: state
+                entity_id: !input thermostat
+                attribute: hvac_action
+                to: idle
+            timeout:
+              seconds: !input wait_timeout
+            continue_on_timeout: false
+          
+          # Restore original temperature setting
+          - action: scene.turn_on
+            target:
+              entity_id: scene.thermostat_temp_diff_snapshot
+        alias: Actual > Target Temperature
+
+      # When actual temperature < target temperature and idle
+      - conditions:
+          - condition: template
+            value_template: >-
+              {% set thermostat = input_thermostat %}
+              {{ state_attr(thermostat, 'current_temperature') < state_attr(thermostat, 'temperature') }}
+            alias: Current < Target
+          - condition: template
+            value_template: >-
+              {% set thermostat = input_thermostat %}
+              {{ state_attr(thermostat, 'hvac_action') == 'idle' }}
+            alias: HVAC is idle
+        sequence:
+          # Increase target temperature by differential
+          - action: climate.set_temperature
+            target:
+              entity_id: !input thermostat
+            data:
+              temperature: >-
+                {% set thermostat = input_thermostat %}
+                {% set differential = input_switching_differential %}
+                {{ (state_attr(thermostat, 'temperature') | float) + differential }}
+          
+          # Wait for HVAC to start heating
+          - wait_for_trigger:
+              - trigger: state
+                entity_id: !input thermostat
+                attribute: hvac_action
+                to: heating
+            timeout:
+              seconds: !input wait_timeout
+            continue_on_timeout: false
+          
+          # Restore original temperature setting
+          - action: scene.turn_on
+            target:
+              entity_id: scene.thermostat_temp_diff_snapshot
+        alias: Actual < Target Temperature
+
+  # Restore snapshot on Home Assistant start
+  - if:
+      - condition: trigger
+        id:
+          - ha-start
+    then:
+      - action: scene.turn_on
+        target:
+          entity_id: scene.thermostat_temp_diff_snapshot
+
+variables:
+  input_thermostat: !input thermostat
+  input_switching_differential: !input switching_differential
+
+mode: single
