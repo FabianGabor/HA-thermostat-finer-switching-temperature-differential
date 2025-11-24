@@ -60,6 +60,8 @@ action:
   - choose:
       - conditions:
           - condition: template
+            value_template: "{{ trigger.id == 'aktualis-homerseklet' }}"
+          - condition: template
             value_template: >-
               {{ state_attr(input_thermostat, 'current_temperature') >
               state_attr(input_thermostat, 'temperature') }}
@@ -94,6 +96,8 @@ action:
         alias: "Aktuális > kívánt hőmérséklet "
 
       - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'aktualis-homerseklet' }}"
           - condition: template
             value_template: >-
               {{ state_attr(input_thermostat, 'current_temperature') <
