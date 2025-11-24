@@ -14,6 +14,13 @@ blueprint:
       selector:
         entity:
           domain: climate
+    window_sensor:
+      name: Window Sensor
+      description: Binary sensor that reports when the window is open. When it is on, adjustments pause.
+      default: null
+      selector:
+        entity:
+          domain: binary_sensor
 
 trigger:
   - trigger: state
@@ -40,6 +47,9 @@ trigger:
 condition: []
 
 action:
+  - condition: template
+    value_template: >-
+      {{ input_window_sensor is none or is_state(input_window_sensor, 'off') }}
   - action: scene.create
     metadata: {}
     data:
@@ -120,5 +130,6 @@ action:
 
 variables:
   input_thermostat: !input thermostat
+  input_window_sensor: !input window_sensor
 
 mode: single
