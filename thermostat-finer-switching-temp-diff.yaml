@@ -85,7 +85,7 @@ action:
               minutes: 1
               seconds: 0
               milliseconds: 0
-            continue_on_timeout: false
+            continue_on_timeout: true
           - action: scene.turn_on
             metadata: {}
             data: {}
@@ -120,7 +120,7 @@ action:
               minutes: 1
               seconds: 0
               milliseconds: 0
-            continue_on_timeout: false
+            continue_on_timeout: true
           - action: scene.turn_on
             metadata: {}
             data: {}
