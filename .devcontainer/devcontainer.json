@@ -1,9 +1,6 @@
 {
   "name": "Home Assistant Blueprint Testing",
-  "image": "mcr.microsoft.com/devcontainers/python:3.12",
-  "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
-  },
+  "image": "mcr.microsoft.com/devcontainers/python:3.13",
   "postCreateCommand": "pip install -r requirements-dev.txt",
   "customizations": {
     "vscode": {

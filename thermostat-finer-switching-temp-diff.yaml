@@ -1,8 +1,8 @@
 blueprint:
   name: Thermostat Finer Switching Temp Diff
   description: >
-    Controls a thermostat with finer temperature control by temporarily adjusting 
-    the target temperature when the actual temperature exceeds or falls below the 
+    Controls a thermostat with finer temperature control by temporarily adjusting
+    the target temperature when the actual temperature exceeds or falls below the
     desired temperature. Uses scene snapshots to restore original settings after adjustment.
   domain: automation
   source_url: https://github.com/FabianGabor/HA-thermostat-finer-switching-temperature-differential
@@ -54,6 +54,12 @@ condition:
   - condition: template
     value_template: >-
       {{ states(input_thermostat) not in ['unavailable', 'unknown'] }}
+  # Cooldown: Don't run if automation ran recently (prevents self-triggering loops)
+  # The timeout is 2 minutes, so we add a 2.5 minute cooldown
+  - condition: template
+    value_template: >-
+      {{ this.attributes.last_triggered is none or
+         (now() - this.attributes.last_triggered).total_seconds() > 150 }}
 
 action:
   - variables:
