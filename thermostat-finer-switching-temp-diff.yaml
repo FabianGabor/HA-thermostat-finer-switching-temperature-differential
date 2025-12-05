@@ -1,8 +1,8 @@
 blueprint:
   name: Thermostat Finer Switching Temp Diff
   description: >
-    Controls a thermostat with finer temperature control by temporarily adjusting 
-    the target temperature when the actual temperature exceeds or falls below the 
+    Controls a thermostat with finer temperature control by temporarily adjusting
+    the target temperature when the actual temperature exceeds or falls below the
     desired temperature. Uses scene snapshots to restore original settings after adjustment.
   domain: automation
   source_url: https://github.com/FabianGabor/HA-thermostat-finer-switching-temperature-differential
@@ -23,59 +23,70 @@ blueprint:
           domain: binary_sensor
 
 trigger:
-  - trigger: state
-    entity_id:
-      - !input thermostat
-    attribute: temperature
-    id: kivant-homerseklet
-    for:
-      hours: 0
-      minutes: 0
-      seconds: 15
-
+  # Trigger on current_temperature changes
   - trigger: state
     entity_id:
       - !input thermostat
     attribute: current_temperature
-    enabled: true
     for:
       hours: 0
       minutes: 0
       seconds: 15
-    id: aktualis-homerseklet
+    id: current-temp-change
 
-condition: []
+  # Trigger on manual target temperature changes
+  - trigger: state
+    entity_id:
+      - !input thermostat
+    attribute: temperature
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 15
+    id: target-temp-change
 
-action:
+condition:
+  # Don't run if window is open
   - condition: template
     value_template: >-
       {{ input_window_sensor is none or is_state(input_window_sensor, 'off') }}
-  - action: scene.create
-    metadata: {}
-    data:
-      snapshot_entities:
-        - !input thermostat
-      scene_id: thermostat_snapshot
+  # Don't run if thermostat is unavailable
+  - condition: template
+    value_template: >-
+      {{ states(input_thermostat) not in ['unavailable', 'unknown'] }}
+  # Cooldown: Don't run if automation ran recently (prevents self-triggering loops)
+  # The timeout is 2 minutes, so we add a 2.5 minute cooldown
+  - condition: template
+    value_template: >-
+      {{ this.attributes.last_triggered is none or
+         (now() - this.attributes.last_triggered).total_seconds() > 150 }}
+
+action:
+  - variables:
+      current_temp: "{{ state_attr(input_thermostat, 'current_temperature') | float }}"
+      target_temp: "{{ state_attr(input_thermostat, 'temperature') | float }}"
+      hvac_action: "{{ state_attr(input_thermostat, 'hvac_action') }}"
 
   - choose:
+      # Case 1: Current temp > target AND thermostat is heating
+      # This means we overshot - temporarily lower target to stop heating
       - conditions:
           - condition: template
-            value_template: "{{ trigger.id == 'aktualis-homerseklet' }}"
+            value_template: "{{ current_temp > target_temp }}"
           - condition: template
-            value_template: >-
-              {{ state_attr(input_thermostat, 'current_temperature') >
-              state_attr(input_thermostat, 'temperature') }}
-          - condition: state
-            entity_id: !input thermostat
-            attribute: hvac_action
-            state: heating
+            value_template: "{{ hvac_action == 'heating' }}"
         sequence:
+          # Save current state BEFORE making any changes
+          - action: scene.create
+            data:
+              scene_id: thermostat_snapshot_{{ input_thermostat | replace('.', '_') }}
+              snapshot_entities:
+                - !input thermostat
           - action: climate.set_temperature
             target:
               entity_id: !input thermostat
             data:
-              temperature: >-
-                {{ (state_attr(input_thermostat, 'temperature') | float) - 0.5 }}
+              temperature: "{{ target_temp - 0.5 }}"
           - wait_for_trigger:
               - trigger: state
                 entity_id:
@@ -84,35 +95,33 @@ action:
                 to: idle
             timeout:
               hours: 0
-              minutes: 1
+              minutes: 2
               seconds: 0
-              milliseconds: 0
             continue_on_timeout: true
           - action: scene.turn_on
-            metadata: {}
-            data: {}
             target:
-              entity_id: scene.thermostat_snapshot
-        alias: "Aktuális > kívánt hőmérséklet "
+              entity_id: "scene.thermostat_snapshot_{{ input_thermostat | replace('.', '_') }}"
+        alias: "Current > target: stop heating earlier"
 
+      # Case 2: Current temp < target AND thermostat is idle
+      # This means we need heat but thermostat hasn't started - temporarily raise target
       - conditions:
           - condition: template
-            value_template: "{{ trigger.id == 'aktualis-homerseklet' }}"
+            value_template: "{{ current_temp < target_temp }}"
           - condition: template
-            value_template: >-
-              {{ state_attr(input_thermostat, 'current_temperature') <
-              state_attr(input_thermostat, 'temperature') }}
-          - condition: state
-            entity_id: !input thermostat
-            attribute: hvac_action
-            state: idle
+            value_template: "{{ hvac_action == 'idle' }}"
         sequence:
+          # Save current state BEFORE making any changes
+          - action: scene.create
+            data:
+              scene_id: thermostat_snapshot_{{ input_thermostat | replace('.', '_') }}
+              snapshot_entities:
+                - !input thermostat
           - action: climate.set_temperature
             target:
               entity_id: !input thermostat
             data:
-              temperature: >-
-                {{ (state_attr(input_thermostat, 'temperature') | float) + 0.5 }}
+              temperature: "{{ target_temp + 0.5 }}"
           - wait_for_trigger:
               - trigger: state
                 entity_id:
@@ -121,16 +130,13 @@ action:
                 to: heating
             timeout:
               hours: 0
-              minutes: 1
+              minutes: 2
               seconds: 0
-              milliseconds: 0
             continue_on_timeout: true
           - action: scene.turn_on
-            metadata: {}
-            data: {}
             target:
-              entity_id: scene.thermostat_snapshot
-        alias: "Aktuális < kívánt hőmérséklet "
+              entity_id: "scene.thermostat_snapshot_{{ input_thermostat | replace('.', '_') }}"
+        alias: "Current < target: start heating earlier"
 
 variables:
   input_thermostat: !input thermostat
